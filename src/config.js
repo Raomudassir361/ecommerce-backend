@@ -16,6 +16,7 @@ const config = {
     'https://react-e-commerce-assignement.vercel.app,https://ecommerce-dashboard-zeta-ecru.vercel.app,http://localhost:5173,http://localhost:5174')
     .split(',')
     .map((origin) => origin.trim())
+    .map((origin) => origin.replace(/\/+$/, ''))
     .filter(Boolean),
   cookieName: 'ecommerce_session'
 };

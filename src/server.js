@@ -1,16 +1,17 @@
-const mongoose = require('mongoose');
 const app = require('./app');
 const { config, validateRuntimeConfig } = require('./config');
+const { connectToDatabase } = require('./database');
 
 async function start() {
   validateRuntimeConfig();
-  await mongoose.connect(config.mongoUri);
+  await connectToDatabase();
   const server = app.listen(config.port, () => {
     console.log(`E-commerce API listening on port ${config.port}`);
   });
 
   const shutdown = async () => {
     server.close(async () => {
+      const mongoose = require('mongoose');
       await mongoose.disconnect();
       process.exit(0);
     });

@@ -17,6 +17,8 @@ Standalone Express 4 and MongoDB API for the storefront and admin panel. It serv
 
 The server listens on port 5000 by default. `FRONTEND_ORIGINS` is a comma-separated origin allow-list. For production, use HTTPS and preferably proxy `/api` through both frontend sites so the session cookie remains first-party.
 
+The `api/index.js` and `api/[...path].js` entry points support Vercel serverless deployment and open/reuse a MongoDB connection before forwarding each request. Set `MONGODB_URI` and the other required variables in the deployment platform's environment settings; a local `.env` file is not deployed. For MongoDB Atlas, ensure the deployment host can reach the cluster and that its network access rules allow the deployment's outbound IPs.
+
 ## API
 
 All endpoints are under `/api`. Health check: `GET /api/health`. Authentication uses an httpOnly, seven-day JWT cookie. Admin endpoints are protected by a current active admin user check on every request.

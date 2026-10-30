@@ -1,5 +1,5 @@
 process.env.JWT_SECRET = 'test-secret-that-is-at-least-thirty-two-characters';
-process.env.FRONTEND_ORIGINS = 'https://store.example';
+process.env.FRONTEND_ORIGINS = 'https://store.example/';
 process.env.NODE_ENV = 'test';
 
 const test = require('node:test');
