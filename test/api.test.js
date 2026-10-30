@@ -22,21 +22,44 @@ test('serverless routes normalize Vercel suffix paths for Express', () => {
     serverlessHandler.normalizeApiPath(req);
     assert.equal(req.url, expected);
   }
+
+  const dynamicReq = { url: '/product-123' };
+  serverlessHandler.normalizeApiPath(dynamicReq, undefined, '/api/products');
+  assert.equal(dynamicReq.url, '/api/products/product-123');
 });
 
-test('explicit auth functions restore their route when Vercel strips the path', () => {
-  const cases = [
-    ['/api/auth/login', require('../api/auth/login')],
-    ['/api/auth/register', require('../api/auth/register')],
-    ['/api/auth/logout', require('../api/auth/logout')],
-    ['/api/auth/customer', require('../api/auth/customer')]
+test('catch-all Vercel functions expose the Express API without per-route function limits', () => {
+  const catchAllHandler = require('../api/[...path]');
+  const rootHandler = require('../api');
+  assert.equal(typeof catchAllHandler, 'function');
+  assert.equal(typeof rootHandler, 'function');
+
+  const routes = [
+    '/api/health',
+    '/api/auth/login',
+    '/api/auth/register',
+    '/api/auth/logout',
+    '/api/auth/customer',
+    '/api/auth/me',
+    '/api/products',
+    '/api/products/prod-123',
+    '/api/products/prod-123/reviews',
+    '/api/reviews',
+    '/api/orders',
+    '/api/orders/mine',
+    '/api/newsletter',
+    '/api/admin/products',
+    '/api/admin/products/prod-123',
+    '/api/admin/orders',
+    '/api/admin/orders/ORD-PK-1',
+    '/api/admin/users/012345678901234567890123',
+    '/api/admin/dashboard/metrics'
   ];
 
-  for (const [path, handler] of cases) {
-    const req = { url: '/' };
-    serverlessHandler.normalizeApiPath(req, path);
-    assert.equal(req.url, path);
-    assert.equal(typeof handler, 'function');
+  for (const route of routes) {
+    const req = { url: route };
+    serverlessHandler.normalizeApiPath(req);
+    assert.equal(req.url, route);
   }
 });
 
@@ -53,11 +76,21 @@ test('unknown paths return JSON 404 responses', async () => {
 });
 
 test('admin endpoints require authentication', async () => {
-  const response = await request(app).get('/api/admin/products');
-  assert.equal(response.status, 401);
-  assert.equal(typeof response.body.message, 'string');
-  const unknownAdminPath = await request(app).get('/api/admin/unknown');
-  assert.equal(unknownAdminPath.status, 401);
+  const paths = [
+    '/api/admin/products',
+    '/api/admin/products/prod-123',
+    '/api/admin/orders',
+    '/api/admin/orders/ORD-PK-1',
+    '/api/admin/users',
+    '/api/admin/users/012345678901234567890123',
+    '/api/admin/dashboard/metrics'
+  ];
+
+  for (const path of paths) {
+    const response = await request(app).get(path);
+    assert.equal(response.status, 401, `${path} should require an admin session`);
+    assert.equal(typeof response.body.message, 'string');
+  }
 });
 
 test('customer-only endpoints require authentication', async () => {
