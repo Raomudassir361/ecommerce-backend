@@ -6,8 +6,39 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const app = require('../src/app');
+const serverlessHandler = require('../src/serverless');
 const { calculateTotals, getDiscount, getStockStatus, serializeProduct } = require('../src/utils');
 const { orderSchema } = require('../src/routes/orders');
+
+test('serverless routes normalize Vercel suffix paths for Express', () => {
+  const cases = [
+    { input: '/auth/customer', expected: '/api/auth/customer' },
+    { input: '/api/auth/customer', expected: '/api/auth/customer' },
+    { input: '/products?category=shirts', expected: '/api/products?category=shirts' }
+  ];
+
+  for (const { input, expected } of cases) {
+    const req = { url: input };
+    serverlessHandler.normalizeApiPath(req);
+    assert.equal(req.url, expected);
+  }
+});
+
+test('explicit auth functions restore their route when Vercel strips the path', () => {
+  const cases = [
+    ['/api/auth/login', require('../api/auth/login')],
+    ['/api/auth/register', require('../api/auth/register')],
+    ['/api/auth/logout', require('../api/auth/logout')],
+    ['/api/auth/customer', require('../api/auth/customer')]
+  ];
+
+  for (const [path, handler] of cases) {
+    const req = { url: '/' };
+    serverlessHandler.normalizeApiPath(req, path);
+    assert.equal(req.url, path);
+    assert.equal(typeof handler, 'function');
+  }
+});
 
 test('health endpoint returns an OK status', async () => {
   const response = await request(app).get('/api/health');
@@ -30,8 +61,19 @@ test('admin endpoints require authentication', async () => {
 });
 
 test('customer-only endpoints require authentication', async () => {
+  const customer = await request(app).get('/api/auth/customer');
+  assert.equal(customer.status, 401);
   const response = await request(app).get('/api/orders/mine');
   assert.equal(response.status, 401);
+});
+
+test('auth endpoints are mounted at the documented paths', async () => {
+  const login = await request(app).post('/api/auth/login').send({ email: 'invalid', password: 'short' });
+  assert.equal(login.status, 400);
+  const register = await request(app).post('/api/auth/register').send({ email: 'invalid', password: 'short' });
+  assert.equal(register.status, 400);
+  const logout = await request(app).post('/api/auth/logout');
+  assert.equal(logout.status, 204);
 });
 
 test('CORS accepts allowed origins and rejects other origins', async () => {
