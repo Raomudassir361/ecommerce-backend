@@ -14,7 +14,9 @@ test('serverless routes normalize Vercel suffix paths for Express', () => {
   const cases = [
     { input: '/auth/customer', expected: '/api/auth/customer' },
     { input: '/api/auth/customer', expected: '/api/auth/customer' },
-    { input: '/products?category=shirts', expected: '/api/products?category=shirts' }
+    { input: '/products?category=shirts', expected: '/api/products?category=shirts' },
+    { input: '/api/index?_route=auth/customer', expected: '/api/auth/customer' },
+    { input: '/api/index?_route=products/prod-1%2Freviews&limit=5', expected: '/api/products/prod-1/reviews?limit=5' }
   ];
 
   for (const { input, expected } of cases) {
@@ -28,39 +30,18 @@ test('serverless routes normalize Vercel suffix paths for Express', () => {
   assert.equal(dynamicReq.url, '/api/products/product-123');
 });
 
-test('catch-all Vercel functions expose the Express API without per-route function limits', () => {
-  const catchAllHandler = require('../api/[...path]');
-  const rootHandler = require('../api');
-  assert.equal(typeof catchAllHandler, 'function');
-  assert.equal(typeof rootHandler, 'function');
+test('one Vercel function handles all API routes via the deployment rewrite', () => {
+  const apiHandler = require('../api/index');
+  const rewrites = require('../vercel.json').rewrites;
+  assert.equal(typeof apiHandler, 'function');
+  assert.deepEqual(rewrites, [{
+    source: '/api/:path*',
+    destination: '/api/index?_route=:path*'
+  }]);
 
-  const routes = [
-    '/api/health',
-    '/api/auth/login',
-    '/api/auth/register',
-    '/api/auth/logout',
-    '/api/auth/customer',
-    '/api/auth/me',
-    '/api/products',
-    '/api/products/prod-123',
-    '/api/products/prod-123/reviews',
-    '/api/reviews',
-    '/api/orders',
-    '/api/orders/mine',
-    '/api/newsletter',
-    '/api/admin/products',
-    '/api/admin/products/prod-123',
-    '/api/admin/orders',
-    '/api/admin/orders/ORD-PK-1',
-    '/api/admin/users/012345678901234567890123',
-    '/api/admin/dashboard/metrics'
-  ];
-
-  for (const route of routes) {
-    const req = { url: route };
-    serverlessHandler.normalizeApiPath(req);
-    assert.equal(req.url, route);
-  }
+  const request = { url: '/api/index?_route=admin/dashboard/metrics' };
+  serverlessHandler.normalizeApiPath(request);
+  assert.equal(request.url, '/api/admin/dashboard/metrics');
 });
 
 test('health endpoint returns an OK status', async () => {
